@@ -1,0 +1,94 @@
+<?php 
+/**
+ * Custom search query for Car Demons Plugin on website beyerauto.com
+ * valid term value_field: 'term_id', 'name', 'slug', 'term_group', 'term_taxonomy_id', 'taxonomy', 
+ 'description', 'parent', 'count'.
+ * 
+ * Could use  $car_demon_options['show_similar_cars'] 
+ * @use whichever term you permalink structure is set to. 
+ * @uses get_the_terms() 'spec' => 'exterior_color'  
+ * @usage shortcode [beyer_color_search]
+ */ 
+add_action( 'init', 'beyerauto_register_shortcodes' );
+
+add_filter( 'widget_text', 'do_shortcode' ); 
+
+//shortcode with no attributes
+function beyer_color_search_shortcode($post_id) 
+{ 
+  if( isset( $_POST['beyer_color'] ) ) { 
+    $bvar = $_POST['beyer_color']; 
+?>
+<script> var url = '<?php echo esc_url( $bvar ); ?>'; 
+window.open(url, '_top');
+</script>
+<?php exit; 
+  }
+
+$vehicle_model = '';
+$post_id       = get_the_ID();
+if(function_exists('get_cd_term')): 
+$vehicle_model = get_cd_term( $post_id, 'vehicle_model' );
+endif;
+//$colors = get_post_meta($post_id, "_exterior_color_value", true);
+
+$args = array(
+    'post_type'      => 'cars_for_sale',
+    'post_status'    => 'publish',
+    'posts_per_page' => 10,
+    'taxonomy'       => 'vehicle_model',
+    's'              =>  $vehicle_model,
+    'compare'        => 'LIKE'
+);
+$query = new WP_Query( $args );
+
+ob_start();
+
+echo '<div class="beyer-search">
+<form class="beyer-search-form" method="POST" action="">
+<span class="screen-reader-text">Search ' . $vehicle_model . ' colors:</span>
+<input type="hidden" name="model_search_color" value="beyer_auto">
+<label><select id="BeyerColor" name="beyer_color" onchange="this.form.submit();">
+<option value="none">' . $vehicle_model . ' Color Options</option>';
+    
+    while( $query->have_posts() ) {
+	  $query->the_post();
+    
+    echo '<option value="'. get_post_permalink() . '">'
+     . get_the_title() . ': ' . get_post_meta(get_the_ID(), 
+     '_exterior_color_value', true) . '</option>';
+    }    
+
+// Restore original Post Data
+wp_reset_postdata();  
+
+echo '</select></label>';
+ wp_nonce_field( 'safe_toredirect_action', 'safe_toredirect_nonce_field' ); 
+ echo '</form></div>'; 
+
+    $htm = ob_get_clean(); 
+    return $htm;  
+}
+
+//get_post_meta($post_id, "_exterior_color_value", true)
+function beyerauto_register_shortcodes() {
+add_shortcode( 'beyer_color_search', 'beyer_color_search_shortcode' );
+} 
+
+function beyer_redirect_color_search() 
+{
+
+if ( ! isset( $_POST['name_of_nonce_field'] ) 
+|| ! wp_verify_nonce( $_POST['safe_toredirect_nonce_field'], 'safe_toredirect_action' ) ){
+    exit; 
+    } else { 
+
+$url = '#'; //$_POST['beyer_color'];
+
+    wp_safe_redirect( $url ); 
+	exit; 
+	 
+	}
+
+}
+?>
