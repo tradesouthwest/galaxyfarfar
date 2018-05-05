@@ -1,0 +1,131 @@
+<?php 
+/**
+ * Custom search query for Car Demons
+ * Exterior Color $map['specs'] = get_default_specs_maps();
+ valid term value_field: 'term_id', 'name', 'slug', 'term_group', 'term_taxonomy_id', 'taxonomy', 'description', 'parent', 'count'.
+ * @use whichever term you permalink structure is set to. 
+ * @uses get_the_terms() 'spec' => 'exterior_color'  
+ * @useing shortcode [beyer_color_search]
+ */ 
+add_action( 'init', 'beyerauto_register_shortcodes' );
+
+add_filter( 'widget_text', 'do_shortcode' ); 
+
+function beyerauto_addtosite_scripts() 
+{ 
+if(empty($post_id)) $post_id = absint(get_the_ID());
+$content = '';
+$trim = beyer_get_trim_value($post_id);
+
+    $content .= '.mkd-post-text-main .entry-title.mkd-post-title:after{
+    content:"' . $trim . '"; position:relative;color:inherit;}';
+
+     wp_register_style( 'beyerauto-entry-set', false );
+     wp_enqueue_style(  'beyerauto-entry-set' );
+   wp_add_inline_style( 'beyerauto-entry-set', $content );
+}
+add_action( 'wp_enqueue_scripts', 'beyerauto_addtosite_scripts' ); 
+
+function beyer_get_trim_value($post_id)
+{
+
+$html = '';
+if(empty($post_id)) $post_id = absint(get_the_ID());
+$trim = get_post_meta( $post_id, 'trim_level', true ); 
+if( !empty ( $trim ) && !is_wp_error( $trim ) ):
+$html .= ' ' . $trim; 
+else: 
+$html .= '';
+endif;
+return $html;
+
+}
+
+/**
+ * retrieve trim values for shortcode
+ * add to ln 85 (abv color search) 
+ * <small class="beyer-small">Trim: '. $trim . '</small>
+ * uncomment ln 66 @str $trim
+ */
+function beyer_color_search_shortcode($post_id) 
+{ 
+if( isset( $_POST['beyer_color'] ) ) { 
+$bvar = $_POST['beyer_color']; 
+?>
+<script> var url = '<?php echo esc_url( $bvar ); ?>'; 
+window.open(url, '_top');
+</script>
+<?php exit; 
+}
+
+$vehicle_model = '';
+$post_id = absint( get_the_ID() );
+
+//$trim = beyer_get_trim_value($post_id);
+
+if(function_exists('get_cd_term')): 
+$vehicle_model = get_cd_term( $post_id, 'vehicle_model' );
+endif;
+
+$args = array(
+    'post_type' => 'cars_for_sale',
+    'post_status' => 'publish',
+    'posts_per_page' => 15,
+    'taxonomy' => 'vehicle_model',
+'s' =>  $vehicle_model,
+'compare' => 'LIKE'
+);
+$query = new WP_Query( $args );
+
+ob_start();
+
+echo '<div class="beyer-search">
+
+<form class="beyer-search-form" method="POST" action="">
+<span class="screen-reader-text">Search ' . $vehicle_model . ' colors:</span>
+<input type="hidden" name="model_search_color" value="beyer_auto">
+<label><select id="BeyerColor" name="beyer_color" onchange="this.form.submit();">
+<option value="none">' . $vehicle_model . ' Color Options</option>';
+    
+    while( $query->have_posts() ) {
+	$query->the_post();
+    
+    echo '<option value="'. get_post_permalink() . '">'
+     . get_the_title() . ': ' . get_post_meta(get_the_ID(), 
+     '_exterior_color_value', true) . '</option>';
+    }    
+
+echo '</select></label>';
+
+ wp_nonce_field( 'safe_toredirect_action', 'safe_toredirect_nonce_field' ); 
+ echo '</form></div>'; 
+
+    $htm = ob_get_clean(); 
+
+// Restore original Post Data
+wp_reset_postdata();  
+
+    return $htm;  
+}
+
+//register shortcode
+function beyerauto_register_shortcodes() {
+add_shortcode( 'beyer_color_search', 'beyer_color_search_shortcode' );
+} 
+
+function beyer_redirect_color_search() 
+{
+
+if ( ! isset( $_POST['name_of_nonce_field'] ) 
+|| ! wp_verify_nonce( $_POST['safe_toredirect_nonce_field'], 'safe_toredirect_action' ) ){
+    exit; 
+    } else { 
+
+$url = '#'; //$_POST['beyer_color'];
+
+    wp_safe_redirect( $url ); 
+	exit; 
+	 
+	}
+
+} 
